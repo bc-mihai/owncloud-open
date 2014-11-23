@@ -12,8 +12,10 @@ owncloud+http://<owncloud URL>/<path>
 owncloud+https://<owncloud URL>/<path>
 
 e.g. owncloud+https://owncloud.example.com/developers/example.txt
-"""
 
+Note: this does not follow the owncloud HTTP(S) URL conventions. Maybe in a later version
+(which are <host:port>/index.php/apps/files?dir=..&files=.. ATM)
+"""
 
 class OwnCloudConfig(object):
     def __init__(self, filename=None):
@@ -59,6 +61,14 @@ class OwnCloudConfig(object):
 
         return self.dir_url_map
 
+    def get_filename_or_url(self, url_or_path):
+        """
+        Get the filename for the given owncloud+*:// URL, or the URL for the given path / file URL otherwise.
+        """
+        if url_or_path.startswith("owncloud+"):
+            return self.get_filename(url_or_path)
+        else:
+            return self.get_url(url_or_path)
 
     def get_filename(self, url):
         """
@@ -184,8 +194,8 @@ if __name__ == "__main__":
     p.add_argument("--unregister-url-handler", action="store_true", \
                    help="Unregister this script as the URL handler for owncloud*:// URLs")
 
-    p.add_argument("--url", help="Output the filesystem path for the given owncloud*:// URL")
-    p.add_argument("--path", help="Output the owncloud*:// URL for the given path")
+    p.add_argument("url_or_path", nargs="?",\
+                   help="Transform either the given owncloud*:// URL into a path or the other way around")
 
     p.add_argument("--run", help="Run the command with the resulting URL / path as the first parameter")
 
@@ -214,14 +224,9 @@ if __name__ == "__main__":
 
     log.debug(opts)
 
-    if opts.url is not None or opts.path is not None:
+    if opts.url_or_path is not None:
         oc = OwnCloudConfig(opts.config)
-
-        if opts.url is not None:
-            print_or_run(oc.get_filename(opts.url))
-
-        if opts.path is not None:
-            print_or_run(oc.get_url(opts.path))
+        print_or_run(oc.get_filename_or_url(opts.url_or_path))
 
     if opts.unregister_url_handler:
         URLHandler.unregister()
