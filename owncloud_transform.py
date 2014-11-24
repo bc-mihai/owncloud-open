@@ -8,16 +8,18 @@ import logging
 
 """
 ownCloud URL format:
-owncloud+http://<owncloud URL>/<path>
-owncloud+https://<owncloud URL>/<path>
+owncloud+http://<owncloud URL>/remote.php/webdav/<path>
+owncloud+https://<owncloud URL>/remote.php/webdav/<path>
 
-e.g. owncloud+https://owncloud.example.com/developers/example.txt
+e.g. owncloud+https://owncloud.example.com/remote.php/webdav/developers/example.txt
 
-Note: this does not follow the owncloud HTTP(S) URL conventions. Maybe in a later version
-(which are <host:port>/index.php/apps/files?dir=..&files=.. ATM)
+Note: this *should* technically point to the WebDAV URL of the given resource if one removes the "owncloud+" prefix.
 """
 
 class OwnCloudConfig(object):
+
+    WEBDAV_PATH="remote.php/webdav/"
+
     def __init__(self, filename=None):
         """
         Read an ownCloud configuration from the given filename.
@@ -81,6 +83,11 @@ class OwnCloudConfig(object):
 
             # translate path, split into array
             rel_path = url[len("owncloud+"+base_url):].strip("/")
+            
+            if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
+                log.debug("removing WEBDAV prefix: %s" % rel_path)
+                rel_path = rel_path[len(OwnCloudConfig.WEBDAV_PATH.strip("/")):].strip("/")
+            
             rel_path = [urllib.unquote_plus(s) for s in rel_path.split("/")]
             log.debug("relative path: %s" % rel_path)
 
@@ -128,7 +135,7 @@ class OwnCloudConfig(object):
 
             log.debug("base url is %s" % base_url)
 
-            return "owncloud+"+base_url+("/".join(rel_path))
+            return "owncloud+"+base_url+OwnCloudConfig.WEBDAV_PATH+("/".join(rel_path))
 
         return None
 
