@@ -181,10 +181,11 @@ class URLHandler(object):
     CONFIG_FILE_CONTENTS = """
 [Desktop Entry]
 Type=Application
-Exec="""+os.path.abspath(__file__)+""" -v --url %u --run xdg-open
+Exec="""+os.path.abspath(__file__)+""" --run xdg-open %u
 Name=ownCloud URL handler
 NoDisplay=true
 MimeType=x-scheme-handler/owncloud+http;x-scheme-handler/owncloud+https;x-scheme-handler/owncloud;
+X-KDE-Protocols=owncloud+http;owncloud+https;owncloud
 """
 
 if __name__ == "__main__":
