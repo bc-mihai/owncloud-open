@@ -2,6 +2,7 @@
 Type=Application
 Exec=/usr/local/bin/owncloud_transform.py --run xdg-open %u
 Name=ownCloud URL handler
-NoDisplay=true
+Icon=owncloud
+Categories=Utility
 MimeType=x-scheme-handler/owncloud+http;x-scheme-handler/owncloud+https;x-scheme-handler/owncloud;
 X-KDE-Protocols=owncloud+http;owncloud+https;owncloud

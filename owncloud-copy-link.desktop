@@ -3,4 +3,4 @@ Type=Application
 Exec=/usr/local/bin/owncloud_copy_link %u
 Name=ownCloud - copy URL
 Icon=edit-copy
-Categories=Network;Application
+Categories=Utility
