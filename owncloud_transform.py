@@ -70,8 +70,9 @@ class OwnCloudConfig(object):
     def get_filename_or_url(self, url_or_path):
         """
         Get the filename for the given owncloud+*:// URL, or the URL for the given path / file URL otherwise.
+        Also parse http:// and https:// URLs AS IF they were owncloud+*:// URLs.
         """
-        if url_or_path.startswith("owncloud+") or url_or_path.startswith("owncloud:"):
+        if any(url_or_path.startswith(prefix) for prefix in ["owncloud+", "owncloud:", "http:", "https:"]):
             return self.get_filename(url_or_path)
         else:
             return self.get_url(url_or_path)
@@ -79,7 +80,13 @@ class OwnCloudConfig(object):
     def get_filename(self, url):
         """
         Get the filename for the given owncloud*:// or owncloud: URL as a string, or None if no match is found.
+        Also parse http:// and https:// URLs AS IF they were owncloud+*:// URLs.
         """
+        
+        # prepend "owncloud+" for now if necessary
+        if url.startswith("http:") or url.startswith("https:"):
+            url = "owncloud+" + url
+            
         for base_path, base_url in self.dir_url_map.itervalues():
             if url.startswith("owncloud:"):
                 log.debug("decoding local URL with base path %s" % base_path)
