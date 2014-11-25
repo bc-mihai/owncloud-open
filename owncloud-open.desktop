@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Exec=/usr/local/bin/owncloud_transform.py --run xdg-open %u
-Name=ownCloud URL handler
+Exec=/usr/local/bin/owncloud_open %u
+Name=Open ownCloud URL
 Icon=owncloud
 Categories=Utility
 MimeType=x-scheme-handler/owncloud+http;x-scheme-handler/owncloud+https;x-scheme-handler/owncloud;

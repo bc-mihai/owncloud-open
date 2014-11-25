@@ -1,7 +1,13 @@
 #!/bin/sh
 
-curdir=$(dirname $0)
-uri=$($curdir/owncloud_transform.py "$1")
+FILE="$1"
+
+if [ -z "$FILE" ]; then
+    FILE="$(xclip -o -s clipboard)"
+fi
+
+curdir=$(dirname "$0")
+uri=$("$curdir/owncloud_transform.py" "$FILE")
 
 echo "$uri" | xclip -selection clipboard
 echo "$uri" | xclip
