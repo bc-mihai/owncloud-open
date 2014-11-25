@@ -8,12 +8,16 @@ import logging
 
 """
 ownCloud URL format:
-owncloud+http://<owncloud URL>/remote.php/webdav/<path>
-owncloud+https://<owncloud URL>/remote.php/webdav/<path>
+owncloud+http://<owncloud URL>/[remote.php/webdav/]<path>
+owncloud+https://<owncloud URL>/[remote.php/webdav/]<path>
 
 e.g. owncloud+https://owncloud.example.com/remote.php/webdav/developers/example.txt
 
 Note: this *should* technically point to the WebDAV URL of the given resource if one removes the "owncloud+" prefix.
+
+owncloud:<path>
+This URL is meant for local files and does not contain a host; the directory path of the first processed local
+installation is used.
 """
 
 class OwnCloudConfig(object):
@@ -67,26 +71,30 @@ class OwnCloudConfig(object):
         """
         Get the filename for the given owncloud+*:// URL, or the URL for the given path / file URL otherwise.
         """
-        if url_or_path.startswith("owncloud+"):
+        if url_or_path.startswith("owncloud+") or url_or_path.startswith("owncloud:"):
             return self.get_filename(url_or_path)
         else:
             return self.get_url(url_or_path)
 
     def get_filename(self, url):
         """
-        Get the filename for the given owncloud*:// URL as a string, or None if no match is found.
+        Get the filename for the given owncloud*:// or owncloud: URL as a string, or None if no match is found.
         """
         for base_path, base_url in self.dir_url_map.itervalues():
-            # check if URL matches
-            log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
-            if not url.startswith("owncloud+"+base_url): continue
+            if url.startswith("owncloud:"):
+                log.debug("decoding local URL with base path %s" % base_path)
+                rel_path = url[len("owncloud:"):].strip("/")
+            else:
+                # check if URL matches
+                log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
+                if not url.startswith("owncloud+"+base_url): continue
 
-            # translate path, split into array
-            rel_path = url[len("owncloud+"+base_url):].strip("/")
+                # translate path, split into array
+                rel_path = url[len("owncloud+"+base_url):].strip("/")
             
-            if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
-                log.debug("removing WEBDAV prefix: %s" % rel_path)
-                rel_path = rel_path[len(OwnCloudConfig.WEBDAV_PATH.strip("/")):].strip("/")
+                if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
+                    log.debug("removing WEBDAV prefix: %s" % rel_path)
+                    rel_path = rel_path[len(OwnCloudConfig.WEBDAV_PATH.strip("/")):].strip("/")
             
             rel_path = [urllib.unquote_plus(s) for s in rel_path.split("/")]
             log.debug("relative path: %s" % rel_path)
