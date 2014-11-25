@@ -12,8 +12,10 @@ This is a (non-standard) ownCloud URL handler implementation. It contains two sc
 
 This will install the utilities in `/usr/local/bin` and the .desktop files in `/usr/share/applications`.
 
-  sudo apt-get install xclip python
-  sudo make install 
+```
+sudo apt-get install xclip python
+sudo make install 
+```
   
 ## State
 
