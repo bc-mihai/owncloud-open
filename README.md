@@ -18,3 +18,7 @@ This will install the utilities in `/usr/local/bin` and the .desktop files in `/
 ## State
 
 Currently tested (a little) on Ubuntu 14.04 with XFCE. Should work on Linux in general. Some issues may still arise (perhaps with custom ownCloud client configurations), in which case please report them. Mac / Windows support is still missing.
+
+## License
+
+Simplified BSD. See LICENSE.txt.
