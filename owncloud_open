@@ -1,0 +1,12 @@
+#!/bin/sh
+
+FILE="$1"
+
+if [ -z "$FILE" ]; then
+    FILE="$(xclip -o -s clipboard)"
+fi
+
+curdir=$(dirname "$0")
+uri=$("$curdir/owncloud_transform.py" "$FILE")
+
+xdg-open "$uri"
