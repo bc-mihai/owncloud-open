@@ -3,6 +3,7 @@ import argparse
 import ConfigParser
 import os
 import urllib
+import glob
 import subprocess
 import logging
 
@@ -54,16 +55,32 @@ class OwnCloudConfig(object):
         Obtain all url - directory mappings from the config files.
         """
 
-        for dir_alias, category_params in \
+        for connection_alias, category_params in \
                 [(section, dict(self.config.items(section))) for section in self.config.sections()]:
-            log.debug("scanning section %s: %s" % (dir_alias, str(category_params)))
+            log.debug("scanning section %s: %s" % (connection_alias, str(category_params)))
             if "url" not in category_params: continue
-
-            alias_config = ConfigParser.ConfigParser()
-            alias_config.read(os.path.join(self.folders_dir, dir_alias))
-
-            self.dir_url_map[dir_alias] = (alias_config.get(dir_alias, "localPath"), category_params["url"])
-            log.debug("map: %s %s" % (dir_alias, self.dir_url_map[dir_alias]))
+            
+            # try all folders
+            for folder_name in glob.glob(os.path.join(self.folders_dir, "*")):
+                try:
+                    alias_config = ConfigParser.ConfigParser()
+                    alias_config.read(folder_name)
+                    
+                    alias_config_section_name = alias_config.sections()[0]
+                    if alias_config.get(alias_config_section_name, "connection") != connection_alias:
+                        continue
+                    
+                    folder_alias = os.path.basename(folder_name)
+                    self.dir_url_map[folder_alias] = \
+                        (alias_config.get(alias_config_section_name, "localPath"), \
+                            category_params["url"].rstrip("/")+ \
+                            alias_config.get(alias_config_section_name, "targetPath"))
+                            
+                    log.debug("found folder alias %s: [%s] %s" % \
+                        (folder_name, alias_config_section_name, str(self.dir_url_map[folder_alias])))
+                except:
+                    log.debug("not a config file: %s" % folder_name)
+                    pass
 
         return self.dir_url_map
 
