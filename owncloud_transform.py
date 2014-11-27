@@ -111,11 +111,12 @@ class OwnCloudConfig(object):
             else:
                 # check if URL matches
                 log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
-                if not url.startswith("owncloud+"+base_url): continue
+                if not url.startswith("owncloud+"+base_url) \
+                    and not url.startswith("owncloud+"+base_url+OwnCloudConfig.WEBDAV_PATH.rstrip("/")): continue
 
                 # translate path, split into array
                 rel_path = url[len("owncloud+"+base_url):].strip("/")
-            
+                
                 if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
                     log.debug("removing WEBDAV prefix: %s" % rel_path)
                     rel_path = rel_path[len(OwnCloudConfig.WEBDAV_PATH.strip("/")):].strip("/")
