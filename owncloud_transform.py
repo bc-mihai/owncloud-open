@@ -71,10 +71,17 @@ class OwnCloudConfig(object):
                         continue
                     
                     folder_alias = os.path.basename(folder_name)
+                    
+                    matching_urls = []
+                    matching_urls.append(category_params["url"].rstrip("/")+ \
+                        alias_config.get(alias_config_section_name, "targetPath"))
+                    
+                    matching_urls.append(category_params["url"].rstrip("/")+ \
+                        "/" + OwnCloudConfig.WEBDAV_PATH.rstrip("/") + \
+                        alias_config.get(alias_config_section_name, "targetPath"))
+                    
                     self.dir_url_map[folder_alias] = \
-                        (alias_config.get(alias_config_section_name, "localPath"), \
-                            category_params["url"].rstrip("/")+ \
-                            alias_config.get(alias_config_section_name, "targetPath"))
+                        (alias_config.get(alias_config_section_name, "localPath"), matching_urls)
                             
                     log.debug("found folder alias %s: [%s] %s" % \
                         (folder_name, alias_config_section_name, str(self.dir_url_map[folder_alias])))
@@ -104,18 +111,25 @@ class OwnCloudConfig(object):
         if url.startswith("http:") or url.startswith("https:"):
             url = "owncloud+" + url
             
-        for base_path, base_url in self.dir_url_map.itervalues():
+        for base_path, base_urls in self.dir_url_map.itervalues():
             if url.startswith("owncloud:"):
                 log.debug("decoding local URL with base path %s" % base_path)
                 rel_path = url[len("owncloud:"):].strip("/")
             else:
                 # check if URL matches
-                log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
-                if not url.startswith("owncloud+"+base_url) \
-                    and not url.startswith("owncloud+"+base_url+OwnCloudConfig.WEBDAV_PATH.rstrip("/")): continue
+                    
+                matched_url = None
+                for base_url in base_urls:
+                    log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
+                                    
+                    if url.startswith("owncloud+"+base_url):
+                        matched_url = base_url
+                        break
+                        
+                if matched_url is None: continue
 
                 # translate path, split into array
-                rel_path = url[len("owncloud+"+base_url):].strip("/")
+                rel_path = url[len("owncloud+"+matched_url):].strip("/")
                 
                 if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
                     log.debug("removing WEBDAV prefix: %s" % rel_path)
