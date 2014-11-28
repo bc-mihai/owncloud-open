@@ -46,7 +46,7 @@ class OwnCloudConfig(object):
         self.config = ConfigParser.ConfigParser()
         self.config.read(self.filename)
 
-        self.dir_url_map = {} # alias: (dir, url) tuples
+        self.dir_url_map = {} # alias: (dir, [plain url, webdav url]) tuples
 
         self._get_dir_url_map()
 
@@ -159,7 +159,7 @@ class OwnCloudConfig(object):
             filename += os.path.sep
             log.debug("adding dir separator to dir: %s" % filename)
 
-        for base_path, base_url in self.dir_url_map.itervalues():
+        for base_path, base_urls in self.dir_url_map.itervalues():
             # check if path matches
             if not base_path.endswith(os.path.sep):
                 base_path += os.path.sep
@@ -177,12 +177,14 @@ class OwnCloudConfig(object):
 
             rel_path = [urllib.quote(s) for s in rel_path.split(os.path.sep)]
 
+            base_url = base_urls[1] # webdav URL
+
             if not base_url.endswith("/"):
                 base_url += "/"
 
             log.debug("base url is %s" % base_url)
 
-            return "owncloud+"+base_url+OwnCloudConfig.WEBDAV_PATH+("/".join(rel_path))
+            return "owncloud+"+base_url+("/".join(rel_path))
 
         return None
 
