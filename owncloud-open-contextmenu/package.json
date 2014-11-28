@@ -1,0 +1,9 @@
+{
+  "name": "owncloud-open-contextmenu",
+  "title": "ownCloud-open context menu",
+  "id": "jid1-qdrksBtqBq7uIA",
+  "description": "Open ownCloud WebDAV links locally",
+  "author": "Mihai Ghete <m.ghete@bikecityguide.org>",
+  "license": "MPL 2.0",
+  "version": "0.1"
+}
