@@ -1,3 +1,5 @@
+## Description
+
 This is a (non-standard) ownCloud URL handler implementation. It contains three scripts and two .desktop files:
 
 * `owncloud_transform.py` can be used to transform paths to local files (or "file://" URLs) into (non-standardized) "owncloud+http(s)://" URLs containing the remote host and WebDAV file path. As a fallback, both URLs without the WebDAV path prefix and without the "owncloud+" prefix (the latter being equivalent to "normal ownCloud WebDAV links") are supported (but not generated). Note that this script uses your local ownCloud desktop sync configuration files to do the mapping.
@@ -10,14 +12,17 @@ This is a (non-standard) ownCloud URL handler implementation. It contains three 
 
 * `owncloud-copy-link.desktop`: This is a shortcut file for `owncloud_copy_link`. An entry is added to the "Accessories" menu and can be used as a drag-drop target by e.g. creating a launcher or desktop shortcut for it or as an "Open as" launcher. **TODO** ideally this would show up as a right-click action in your file manager..
 
-Additionally, the project contains a Firefox `.xpi` extension that adds an "Open ownCloud URL" context-menu entry that will attempt to trigger the ownCloud URL handler.
+### File manager / browser integration:
+
+* **Firefox**: The Firefox `.xpi` extension adds an "Open ownCloud URL" entry to the context ("right click") menu. It will attempt to trigger the ownCloud URL handler (i.e. open the file or directory locally).
+
+* **Nautilus**: The Nautilus extension adds a "Copy ownCloud Link" entry to the context ("right click") menu, which runs `owncloud_copy_link` with the selected file as a parameter. The extension requires Nautilus-Python support (may be called called `nautilus-python` or `python-nautilus`).
 
 ## Installation
 
-This will install the utilities in `/usr/local/bin` and the .desktop files in `/usr/share/applications`.
+This will install the utilities in `/usr/local/bin`, the .desktop files in `/usr/share/applications` and the Nautilus extension in `/usr/share/nautilus-python/extensions`.
 
 ```
-sudo apt-get install xclip python
 sudo make install 
 ```
 

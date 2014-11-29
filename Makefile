@@ -1,7 +1,11 @@
-install: /usr/bin/xclip
+install: /usr/bin/xclip /usr/share/nautilus-python
 	cp -p owncloud-copy-link.desktop owncloud-open.desktop /usr/share/applications
 	install -t /usr/local/bin owncloud_transform.py owncloud_copy_link owncloud_open
+	install -t /usr/share/nautilus-python/extensions/ filemanager-integration/nautilus_copy_link.py
 	update-desktop-database
+
+/usr/share/nautilus-python:
+	if which apt-get; then apt-get install python-nautilus; else echo "please install python-nautilus!"; fi
 
 /usr/bin/xclip:
 	if which apt-get; then apt-get install xclip; else echo "please install xclip!"; fi
@@ -9,4 +13,5 @@ install: /usr/bin/xclip
 uninstall:
 	rm -f /usr/share/applications/owncloud-copy-link.desktop /usr/share/applications/owncloud-open.desktop
 	rm -f /usr/local/bin/owncloud_transform.py /usr/local/bin/owncloud_copy_link /usr/local/bin/owncloud_open
+	rm -f /usr/share/nautilus-python/extensions/nautilus_copy_link.py
 	update-desktop-database
