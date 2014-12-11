@@ -1,5 +1,12 @@
 #!/bin/sh
 
+STRIP_PREFIX=0
+
+if [ "$1" = "--strip" ]; then
+    STRIP_PREFIX=1
+    shift 1
+fi
+
 FILE="$1"
 
 if [ -z "$FILE" ]; then
@@ -8,6 +15,10 @@ fi
 
 curdir=$(dirname "$0")
 uri=$("$curdir/owncloud_transform.py" "$FILE")
+
+if [ "$STRIP_PREFIX" = "1" ]; then
+    uri=$(echo "$uri"|sed 's/^owncloud+//')
+fi
 
 echo "$uri" | xclip -selection clipboard
 echo "$uri" | xclip

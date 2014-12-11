@@ -5,7 +5,7 @@ class ColumnExtension(GObject.GObject, Nautilus.MenuProvider):
     def copy_link(self, menu, files):
         if len(files) == 0: return
         # TODO use the python API to get the URL, some Gnome API to write to the clipboard..
-        subprocess.call(["owncloud_copy_link", files[0].get_uri()])
+        subprocess.call(["owncloud_copy_link", "--strip", files[0].get_uri()])
 
     def get_file_items(self, window, files):
         copy_link_item = Nautilus.MenuItem(name='OwnCloudOpen::CopyLink', label='Copy ownCloud Link')

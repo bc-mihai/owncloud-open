@@ -12,7 +12,7 @@ This is a (non-standard) ownCloud URL handler implementation. It contains three 
 
 * `owncloud-copy-link.desktop`: This is a shortcut file for `owncloud_copy_link`. An entry is added to the "Accessories" menu and can be used as a drag-drop target by e.g. creating a launcher or desktop shortcut for it or as an "Open as" launcher. **TODO** ideally this would show up as a right-click action in your file manager..
 
-### File manager / browser integration:
+### File manager / browser integration
 
 * **Firefox**: The Firefox `.xpi` extension adds an "Open ownCloud URL" entry to the context ("right click") menu. It will attempt to trigger the ownCloud URL handler (i.e. open the file or directory locally).
 
