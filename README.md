@@ -18,9 +18,11 @@ This is a (non-standard) ownCloud URL handler implementation. It contains three 
 
 * **Nautilus**: The Nautilus extension adds a "Copy ownCloud Link" entry to the context ("right click") menu, which runs `owncloud_copy_link` with the selected file as a parameter. The extension requires Nautilus-Python support (may be called called `nautilus-python` or `python-nautilus`).
 
+* **Dolphin**: The Dolphin extension adds a "Copy ownCloud Link" entry to the "Actions" context ("right click") menu, which runs `owncloud_copy_link` with the selected file as a parameter. TODO: Probably depends on package *python-kde4*.
+
 ## Installation
 
-This will install the utilities in `/usr/local/bin`, the .desktop files in `/usr/share/applications` and the Nautilus extension in `/usr/share/nautilus-python/extensions`.
+This will install the utilities in `/usr/local/bin`, the .desktop files in `/usr/share/applications`, `/usr/share/applications/kde4` and the Nautilus extension in `/usr/share/nautilus-python/extensions`.
 
 ```
 sudo make install 
@@ -30,7 +32,7 @@ To install the .xpi, just open it in Firefox.
   
 ## State
 
-Currently tested (a little) on Ubuntu 14.04 with XFCE. Should work on Linux in general. Some issues may still arise (perhaps with custom ownCloud client configurations), in which case please report them. Mac / Windows support is still missing.
+Currently tested (a little) on Ubuntu 14.04 with XFCE and Ubuntu 12.04 with KDE. Should work on Linux in general. Some issues may still arise (perhaps with custom ownCloud client configurations), in which case please report them. Mac / Windows support is still missing.
 
 ## License
 
