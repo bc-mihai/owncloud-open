@@ -1,6 +1,6 @@
 install: /usr/bin/xclip /usr/share/nautilus-python
 	cp -p owncloud-copy-link.desktop owncloud-open.desktop /usr/share/applications
-	cp -p owncloud-copy-link.desktop owncloud-copy-link-kde.desktop /usr/share/applications/kde4
+	cp -p owncloud-copy-link-kde.desktop /usr/share/applications/kde4
 	install -t /usr/local/bin owncloud_transform.py owncloud_copy_link owncloud_open
 	install -t /usr/share/nautilus-python/extensions/ filemanager-integration/nautilus_copy_link.py
 	update-desktop-database
