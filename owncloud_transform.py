@@ -1,36 +1,60 @@
 #!/usr/bin/env python
 import argparse
 import ConfigParser
+import urlparse
+from collections import defaultdict
 import os
 import urllib
-import glob
 import subprocess
 import logging
 
 """
-ownCloud URL format:
-owncloud+http://<owncloud URL>/[remote.php/webdav/]<path>
-owncloud+https://<owncloud URL>/[remote.php/webdav/]<path>
+Supported ownCloud URL formats:
+[owncloud+]http[s]://<owncloud URL>/[remote.php/webdav/]<path>
+[owncloud+]http[s]://<owncloud URL>/[index.php]/apps/files/?dir=<encoded path>
+[owncloud+]http[s]://<owncloud URL>/[index.php]/apps/files/ajax/download.php?dir=<encoded path>&files=<encoded basename>
 
 e.g. owncloud+https://owncloud.example.com/remote.php/webdav/developers/example.txt
-
-Note: this *should* technically point to the WebDAV URL of the given resource if one removes the "owncloud+" prefix.
-
-owncloud:<path>
-This URL is meant for local files and does not contain a host; the directory path of the first processed local
-installation is used.
 """
+
+
+class OwnCloudAccount(object):
+    def __init__(self):
+        self.base_url = None
+        self.paths = defaultdict(OwnCloudPath)
+
+    def set_base_url(self, base_url):
+        self.base_url = base_url.rstrip("/")
+
+
+class OwnCloudPath(object):
+    def __init__(self):
+        self.local_path = None
+        self.target_path = None
+
+    def set_local_path(self, local_path):
+        # note: local_path: no trailing path separator
+        self.local_path = local_path.rstrip(os.path.sep)
+
+    def set_target_path(self, target_path):
+        # note: target_path: leading slash, no trailing slash
+        self.target_path = target_path.rstrip("/")
+
+        if not self.target_path.startswith("/"):
+            self.target_path = "/" + self.target_path
+
 
 class OwnCloudConfig(object):
 
-    WEBDAV_PATH="remote.php/webdav/"
+    URL_TYPE_WEBCLIENT = 0
+    URL_TYPE_WEBDAV = 1
 
     def __init__(self, filename=None):
         """
         Read an ownCloud configuration from the given filename.
         :param filename: The filename, or None to use the default file.
         """
-        # TODO windows, mac (probably has different directories)
+        # TODO windows, mac (different directories)
 
         self.filename = filename
 
@@ -39,113 +63,163 @@ class OwnCloudConfig(object):
 
         log.debug("opening config file %s" % self.filename)
 
-        self.folders_dir = os.path.join(os.path.dirname(self.filename), "folders")
-
-        log.debug("got folders dir %s" % self.folders_dir)
-
         self.config = ConfigParser.ConfigParser()
         self.config.read(self.filename)
 
-        self.dir_url_map = {} # alias: (dir, [plain url, webdav url]) tuples
+        self.accounts = defaultdict(OwnCloudAccount)
+        self._get_accounts()
 
-        self._get_dir_url_map()
-
-    def _get_dir_url_map(self):
+    def _get_accounts(self):
         """
         Obtain all url - directory mappings from the config files.
+
+        ownCloud config file format has changed. In 2.1, everything is in the Accounts section:
+
+        <num>\url
+        <num>\Folders\<id>\localPath
+        <num>\Folders\<id>\targetPath
+
+        with num being a number (starting with 0) and <id> a folder identifier string..
         """
 
-        for connection_alias, category_params in \
-                [(section, dict(self.config.items(section))) for section in self.config.sections()]:
-            log.debug("scanning section %s: %s" % (connection_alias, str(category_params)))
-            if "url" not in category_params: continue
-            
-            # try all folders
-            for folder_name in glob.glob(os.path.join(self.folders_dir, "*")):
-                try:
-                    alias_config = ConfigParser.ConfigParser()
-                    alias_config.read(folder_name)
-                    
-                    alias_config_section_name = alias_config.sections()[0]
-                    if alias_config.get(alias_config_section_name, "connection") != connection_alias:
-                        continue
-                    
-                    folder_alias = os.path.basename(folder_name)
-                    
-                    matching_urls = []
-                    matching_urls.append(category_params["url"].rstrip("/")+ \
-                        alias_config.get(alias_config_section_name, "targetPath"))
-                    
-                    matching_urls.append(category_params["url"].rstrip("/")+ \
-                        "/" + OwnCloudConfig.WEBDAV_PATH.rstrip("/") + \
-                        alias_config.get(alias_config_section_name, "targetPath"))
-                    
-                    self.dir_url_map[folder_alias] = \
-                        (alias_config.get(alias_config_section_name, "localPath"), matching_urls)
-                            
-                    log.debug("found folder alias %s: [%s] %s" % \
-                        (folder_name, alias_config_section_name, str(self.dir_url_map[folder_alias])))
-                except:
-                    log.debug("not a config file: %s" % folder_name)
-                    pass
+        if not self.config.has_section("Accounts"):
+            return
 
-        return self.dir_url_map
+        for key, val in self.config.items("Accounts"):
+            key_path = key.lower().split("\\")
+            if len(key_path) < 2 or not key_path[0].isdigit():
+                continue # skip unknown option
 
-    def get_filename_or_url(self, url_or_path):
+            account_id = int(key_path[0])
+
+            logging.debug("Parsing %s: %s", key, val)
+
+            if len(key_path) == 2 and key_path[1] == "url":
+                self.accounts[account_id].set_base_url(val)
+
+            elif len(key_path) == 4 and key_path[1] == "folders" and key_path[3] == "localpath":
+                self.accounts[account_id].paths[key_path[2]].set_local_path(val)
+
+            elif len(key_path) == 4 and key_path[1] == "folders" and key_path[3] == "targetpath":
+                self.accounts[account_id].paths[key_path[2]].set_target_path(val)
+
+        invalid_account_ids = []
+        for account_id, account in self.accounts.iteritems():
+            if account.base_url is None:
+                invalid_account_ids.append(account_id)
+                log.debug("deleting account with invalid URL: %d", account_id)
+                continue
+
+            invalid_path_ids = []
+            for path_id, path in account.paths.iteritems():
+                if path.local_path is None or path.target_path is None:
+                    invalid_path_ids.append(path_id)
+                    log.debug("deleting path with invalid values: %s (%s -> %s)", path_id, path.local_path,
+                                  path.target_path)
+            for i in invalid_path_ids:
+                del account.paths[i]
+
+        for i in invalid_account_ids:
+            del self.accounts[i]
+
+        if log.isEnabledFor(logging.DEBUG):
+            for account_id, account in self.accounts.iteritems():
+                logging.debug("Account %d: %s", account_id, account.base_url)
+                for path_id, path in account.paths.iteritems():
+                    logging.debug(" Path %s: %s -> %s", path_id, path.local_path, path.target_path)
+
+
+    def get_filename_or_url(self, url_or_path, url_type=URL_TYPE_WEBCLIENT):
         """
         Get the filename for the given owncloud+*:// URL, or the URL for the given path / file URL otherwise.
         Also parse http:// and https:// URLs AS IF they were owncloud+*:// URLs.
         """
-        if any(url_or_path.startswith(prefix) for prefix in ["owncloud+", "owncloud:", "http:", "https:"]):
+        if any(url_or_path.startswith(prefix) for prefix in ["owncloud+", "http:", "https:"]):
             return self.get_filename(url_or_path)
         else:
-            return self.get_url(url_or_path)
+            return self.get_url(url_or_path, url_type)
 
     def get_filename(self, url):
         """
-        Get the filename for the given owncloud*:// or owncloud: URL as a string, or None if no match is found.
+        Get the filename for the given owncloud*:// URL as a string, or None if no match is found.
         Also parse http:// and https:// URLs AS IF they were owncloud+*:// URLs.
         """
         
-        # prepend "owncloud+" for now if necessary
-        if url.startswith("http:") or url.startswith("https:"):
-            url = "owncloud+" + url
-            
-        for base_path, base_urls in self.dir_url_map.itervalues():
-            if url.startswith("owncloud:"):
-                log.debug("decoding local URL with base path %s" % base_path)
-                rel_path = url[len("owncloud:"):].strip("/")
+        # strip "owncloud+" from links
+        if url.startswith("owncloud+"):
+            url = url[len("owncloud+"):]
+
+        for account in self.accounts.itervalues():
+            if url != account.base_url and not url.startswith(account.base_url+"/"):
+                continue
+
+            # found match
+            log.debug("found matching URL %s", account.base_url)
+
+            # remove URL
+            url_path = url[len(account.base_url):]
+
+            # remove prefixes
+            is_actual_path = False
+
+            if url_path == "/index.php" or url_path.startswith("/index.php/"):
+                url_path = url_path[len("/index.php"):]
+
+            if url_path == "/remote.php/webdav" or url_path.startswith("/remote.php/webdav/"):
+                url_path = url_path[len("/remote.php/webdav"):]
+                is_actual_path = True
+                logging.debug("found webdav path")
+
+            url_path = url_path.lstrip("/")
+
+            if not is_actual_path:
+                # parse apps/files/?dir= and apps/files/ajax/download.php?dir= if present
+                if url_path.startswith("apps/files?") or url_path.startswith("apps/files/?"):
+                    log.debug("parsing file app path to dir: %s", url_path)
+                    url_params = urlparse.parse_qs(url_path.split("?", 1)[1])
+                    log.debug(url_params)
+                    if "dir" not in url_params:
+                        log.error("required dir parameter not found in URL")
+                        return None # error
+                    else:
+                        url_path = url_params["dir"][0]
+                elif url_path.startswith("apps/files/ajax/download.php?"):
+                    log.debug("parsing file app path to file: %s", url_path)
+                    url_params = urlparse.parse_qs(url_path.split("?", 1)[1])
+                    log.debug(url_params)
+                    if "dir" not in url_params or "files" not in url_params:
+                        log.error("required parameters not found in URL")
+                        return None # error
+                    else:
+                        url_path = url_params["dir"][0].rstrip("/") + "/" + url_params["files"][0]
+                else:
+                    log.debug("unknown URL path fragment: %s", url_path)
             else:
-                # check if URL matches
-                    
-                matched_url = None
-                for base_url in base_urls:
-                    log.debug("matching %s with %s" % (url, "owncloud+"+base_url))
-                                    
-                    if url.startswith("owncloud+"+base_url):
-                        matched_url = base_url
-                        break
-                        
-                if matched_url is None: continue
+                # assume full path. unquote URL
+                url_path = urllib.unquote_plus(url_path)
 
-                # translate path, split into array
-                rel_path = url[len("owncloud+"+matched_url):].strip("/")
-                
-                if rel_path.startswith(OwnCloudConfig.WEBDAV_PATH.strip("/")):
-                    log.debug("removing WEBDAV prefix: %s" % rel_path)
-                    rel_path = rel_path[len(OwnCloudConfig.WEBDAV_PATH.strip("/")):].strip("/")
-            
-            rel_path = [urllib.unquote_plus(s) for s in rel_path.split("/")]
-            log.debug("relative path: %s" % rel_path)
+            # find matching path prefix. make sure leading slash is there (in order to match it with the target path)
+            if not url_path.startswith("/"):
+                url_path = "/" + url_path
 
-            return os.path.join(base_path, *rel_path)
+            for account_path in account.paths.itervalues():
+                log.debug("matching %s with %s -> %s", url_path, account_path.local_path, account_path.target_path)
+                if url_path == account_path.target_path or url_path.startswith(account_path.target_path+"/"):
+
+                    return os.path.join(account_path.local_path,
+                                        *(url_path[len(account_path.target_path):].strip("/").split("/")))
+
+            log.debug("path not matched: %s", url_path)
 
         return None
 
-    def get_url(self, filename):
+    def get_url(self, filename, url_type=URL_TYPE_WEBCLIENT):
         """
         Get an URL for the given filename (or file:// URL), or None if the file is not within one of
         the owncloud directories.
+
+        :param filename The file or directory name, or file:// URL
+        :param url_type One of the URL_TYPE_* constants; returns different URL types.
         """
         if filename.startswith("file://"):
             filename = urllib.url2pathname(filename[len("file://"):])
@@ -159,34 +233,38 @@ class OwnCloudConfig(object):
             filename += os.path.sep
             log.debug("adding dir separator to dir: %s" % filename)
 
-        for base_path, base_urls in self.dir_url_map.itervalues():
-            # check if path matches
-            if not base_path.endswith(os.path.sep):
-                base_path += os.path.sep
+        for account in self.accounts.itervalues():
+            for path in account.paths.itervalues():
+                local_path = path.local_path + os.path.sep
+                log.debug("comparing with basepath; now %s" % local_path)
+                if not filename.startswith(local_path): continue
 
-            log.debug("comparing with basepath; now %s" % base_path)
+                rel_path = os.path.relpath(filename, local_path)
+                if rel_path == ".": rel_path = ""
 
-            if not filename.startswith(base_path): continue
+                file_path_elems = path.target_path.split("/") + rel_path.split("/")
 
-            # translate url
-            rel_path = os.path.relpath(filename, base_path)
+                # translate url
+                log.debug("relative path to %s: %s" % (path, rel_path))
 
-            if rel_path == ".": rel_path = ""
+                if url_type == OwnCloudConfig.URL_TYPE_WEBCLIENT:
+                    base_url = account.base_url
+                    if not base_url.endswith("/index.php"):
+                        base_url += "/index.php"  # ugh!
 
-            log.debug("relative path to %s: %s" % (base_path, rel_path))
-
-            rel_path = [urllib.quote(s) for s in rel_path.split(os.path.sep)]
-
-            base_url = base_urls[1] # webdav URL
-
-            if not base_url.endswith("/"):
-                base_url += "/"
-
-            log.debug("base url is %s" % base_url)
-
-            return "owncloud+"+base_url+("/".join(rel_path))
+                    if os.path.isdir(filename) or len(file_path_elems) < 1:
+                        return base_url + "/apps/files/?dir=" + \
+                               urllib.quote_plus("/".join(file_path_elems))
+                    else:
+                        return base_url + "/apps/files/ajax/download.php?dir=" + \
+                               urllib.quote_plus("/".join(file_path_elems[:-1])) + \
+                               "&files=" + urllib.quote_plus(file_path_elems[-1])
+                elif url_type == OwnCloudConfig.URL_TYPE_WEBDAV:
+                    return account.base_url + "/remote.php/webdav/" + \
+                            "/".join(urllib.quote(s) for s in file_path_elems)
 
         return None
+
 
 class URLHandler(object):
     # TODO windows, mac
@@ -254,6 +332,8 @@ if __name__ == "__main__":
     p.add_argument("url_or_path", nargs="?",\
                    help="Transform either the given owncloud*:// URL into a path or the other way around")
 
+    p.add_argument("--output-webdav", action="store_true", help="Output the WebDAV URL")
+
     p.add_argument("--run", help="Run the command with the resulting URL / path as the first parameter")
 
     p.add_argument("-c", "--config", \
@@ -283,7 +363,8 @@ if __name__ == "__main__":
 
     if opts.url_or_path is not None:
         oc = OwnCloudConfig(opts.config)
-        print_or_run(oc.get_filename_or_url(opts.url_or_path))
+        print_or_run(oc.get_filename_or_url(opts.url_or_path, OwnCloudConfig.URL_TYPE_WEBDAV if opts.output_webdav
+            else OwnCloudConfig.URL_TYPE_WEBCLIENT))
 
     if opts.unregister_url_handler:
         URLHandler.unregister()
